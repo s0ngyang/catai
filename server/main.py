@@ -100,7 +100,7 @@ async def get_cat_image(count: int):
     try:
         async with httpx.AsyncClient() as client:
             response = await client.get(
-                f"https://api.thecatapi.com/v1/images/search?limit={count}&?api_key={CAT_API_KEY}"
+                f"https://api.thecatapi.com/v1/images/search?limit={count}&api_key={CAT_API_KEY}"
             )
             response.raise_for_status()  # Raise an error for bad status codes
             return response.json()

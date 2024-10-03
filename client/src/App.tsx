@@ -2,24 +2,25 @@ import {
   Run,
   RunSubmitToolOutputsParams,
 } from "openai/resources/beta/threads/runs/runs.mjs";
+import { Message } from "./types/message";
+import { CatImageData } from "./types/catImageData";
 import React, { useState, useEffect, useRef } from "react";
-
-const API_URL = "http://localhost:8000";
+import { API_URL } from "./services/api";
 
 const App: React.FC = () => {
   const [input, setInput] = useState<string>("");
-  const [messages, setMessages] = useState<any[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [threadId, setThreadId] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [catImageUrl, setCatImageUrl] = useState<string[]>([]);
 
   // Append a message to the chat history
-  const appendMessage = (message: any) => {
+  const appendMessage = (message: Message) => {
     setMessages((prevMessages) => [...prevMessages, message]);
   };
 
   // Update the latest message with the actual response from the backend
-  const updateLastMessage = (updatedMessage: any) => {
+  const updateLastMessage = (updatedMessage: Message) => {
     setMessages((prevMessages) => [
       ...prevMessages.slice(0, -1),
       updatedMessage,
@@ -46,7 +47,7 @@ const App: React.FC = () => {
           tool_call_id: toolCall.id,
           output: JSON.stringify(catImageData),
         });
-        setCatImageUrl(catImageData.map((data: any) => data.url));
+        setCatImageUrl(catImageData.map((data: CatImageData) => data.url));
       }
     }
 
@@ -110,11 +111,13 @@ const App: React.FC = () => {
   // Sending the message and starting polling for the assistant's response
   const sendMessage = async (text: string) => {
     // Add the user message immediately to the chat UI
-    const tempMessage = {
+    const tempMessage: Message = {
       id: new Date().toISOString(),
       role: "user",
-      content: [{ text: { value: text } }],
-      created_at: new Date().toISOString(),
+      content: [{ type: "text", text: { value: text, annotations: [] } }],
+      created_at: Number(new Date().toISOString()),
+      object: "thread.message",
+      thread_id: threadId,
     };
     appendMessage(tempMessage);
 
@@ -165,12 +168,12 @@ const App: React.FC = () => {
   return (
     <div className="flex flex-row justify-center items-center h-screen w-screen bg-gray-100">
       {catImageUrl.length > 0 && (
-        <div className="flex-col">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
           {catImageUrl.map((catImageUrl) => (
             <img
               key={catImageUrl}
               src={catImageUrl}
-              className="flex object-cover w-auto h-auto rounded-lg mx-4"
+              className="flex object-cover w-40 h-40 rounded-lg mx-4"
             ></img>
           ))}
         </div>
@@ -194,7 +197,9 @@ const App: React.FC = () => {
                       : "bg-gray-300 text-black self-start"
                   }`}
                 >
-                  {message.content[0].text.value}
+                  {/* for simplicity, only show text */}
+                  {message.content[0].type === "text" &&
+                    message.content[0].text.value}
                 </div>
               ))}
           <div ref={messagesEndRef} />
