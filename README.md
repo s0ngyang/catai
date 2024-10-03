@@ -1,8 +1,10 @@
 # catai
 
+A wrapper for OpenAi Assistant, with function calling for cat images!
+
 Stack
 
-- React.js
+- React.js, Tailwind CSS
 - FastAPI
 
 Frontend Setup
