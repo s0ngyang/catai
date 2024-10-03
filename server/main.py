@@ -1,8 +1,9 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 import openai
 import os
 from dotenv import load_dotenv
+import httpx
 
 # Load environment variables from the .env file
 load_dotenv()
@@ -10,6 +11,7 @@ load_dotenv()
 app = FastAPI()
 openai.api_key = os.getenv("OPENAI_API_KEY")
 assistant_id = os.getenv("ASSISTANT_ID")
+CAT_API_KEY = os.getenv("CAT_API_KEY")
 
 # Enable CORS
 app.add_middleware(
@@ -81,7 +83,7 @@ async def retrieve_messages(thread_id: str):
 async def submit_tool_outputs(thread_id: str, run_id: str, request: Request):
     body = await request.json()
     tool_outputs = body.get("toolOutputs", [])
-    print(tool_outputs)
+
     try:
         openai.beta.threads.runs.submit_tool_outputs(
             thread_id=thread_id,
@@ -91,3 +93,19 @@ async def submit_tool_outputs(thread_id: str, run_id: str, request: Request):
         return {"status": "success"}
     except Exception as e:
         return {"status": e}
+
+
+@app.get("/get_cat_image")
+async def get_cat_image(count: int):
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"https://api.thecatapi.com/v1/images/search?limit={count}&?api_key={CAT_API_KEY}"
+            )
+            response.raise_for_status()  # Raise an error for bad status codes
+            return response.json()
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(status_code=e.response.status_code,
+                            detail="Error fetching cat images")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

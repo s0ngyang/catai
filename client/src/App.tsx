@@ -11,7 +11,7 @@ const App: React.FC = () => {
   const [messages, setMessages] = useState<any[]>([]);
   const [threadId, setThreadId] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [catImageUrl, setCatImageUrl] = useState<string>("");
+  const [catImageUrl, setCatImageUrl] = useState<string[]>([]);
 
   // Append a message to the chat history
   const appendMessage = (message: any) => {
@@ -34,19 +34,19 @@ const App: React.FC = () => {
 
   const handleFunctionCall = async (run: Run) => {
     const toolOutputs: RunSubmitToolOutputsParams.ToolOutput[] = [];
+
     const toolCalls = run.required_action?.submit_tool_outputs.tool_calls ?? [];
     for (const toolCall of toolCalls) {
       if (toolCall.function.name === "getCatImage") {
-        const catImage = await fetch(
-          "https://api.thecatapi.com/v1/images/search"
-        );
-        const catImageData = await catImage.json();
-        const imageUrl = catImageData[0].url;
+        const count = JSON.parse(toolCall.function.arguments).count;
+        const response = await fetch(`${API_URL}/get_cat_image?count=` + count);
+        const catImageData = await response.json();
+        console.log(catImageData);
         toolOutputs.push({
           tool_call_id: toolCall.id,
-          output: imageUrl,
+          output: JSON.stringify(catImageData),
         });
-        setCatImageUrl(imageUrl);
+        setCatImageUrl(catImageData.map((data: any) => data.url));
       }
     }
 
@@ -61,7 +61,7 @@ const App: React.FC = () => {
       );
       const result = await response.json();
       if (result.status === "success") {
-        pollRunStatus(threadId, run.id);
+        pollRunStatus(threadId, run.id, true);
       } else {
         setIsLoading(false);
         alert("Function call failed");
@@ -70,7 +70,11 @@ const App: React.FC = () => {
   };
 
   // Polling function to check the run status
-  const pollRunStatus = async (threadId: string, runId: string) => {
+  const pollRunStatus = async (
+    threadId: string,
+    runId: string,
+    action_done: boolean
+  ) => {
     try {
       const pollInterval = setInterval(async () => {
         const response = await fetch(
@@ -82,7 +86,6 @@ const App: React.FC = () => {
           clearInterval(pollInterval);
           const response = await fetch(`${API_URL}/list_messages/${threadId}`);
           const result = await response.json();
-          console.log(result.messages);
           setMessages(result.messages.data);
           setIsLoading(false);
         } else if (result.run.status === "failed") {
@@ -90,10 +93,10 @@ const App: React.FC = () => {
           setIsLoading(false);
           alert("Failed to get response from the assistant");
         } else if (
+          !action_done &&
           result.run.status === "requires_action" &&
           result.run.required_action.type === "submit_tool_outputs"
         ) {
-          // Function calling to handle the action
           clearInterval(pollInterval);
           handleFunctionCall(result.run);
         }
@@ -124,7 +127,7 @@ const App: React.FC = () => {
 
       const { runId, message } = await response.json();
       updateLastMessage(message); // Update the temporary message with the real message object
-      pollRunStatus(threadId, runId);
+      pollRunStatus(threadId, runId, false);
     } catch (error) {
       console.error("Error while sending the message:", error);
       alert("Unknown error occurred");
@@ -156,19 +159,24 @@ const App: React.FC = () => {
       const data = await res.json();
       setThreadId(data.threadId);
     };
-    createThread();
-  }, []);
+    if (!threadId) createThread();
+  });
 
   return (
     <div className="flex flex-row justify-center items-center h-screen w-screen bg-gray-100">
-      {catImageUrl && (
-        <img
-          src={catImageUrl}
-          className="flex object-cover w-80 h-auto rounded-lg mx-4"
-        ></img>
+      {catImageUrl.length > 0 && (
+        <div className="flex-col">
+          {catImageUrl.map((catImageUrl) => (
+            <img
+              key={catImageUrl}
+              src={catImageUrl}
+              className="flex object-cover w-auto h-auto rounded-lg mx-4"
+            ></img>
+          ))}
+        </div>
       )}
-      <div className="w-full max-w-lg bg-white rounded-lg shadow-lg p-6">
-        <div className="flex flex-col space-y-3 max-h-96 overflow-y-auto mb-4">
+      <div className="flex-col w-full max-w-xl h-full bg-white rounded-lg shadow-lg p-6">
+        <div className="flex flex-col space-y-3 h-[85vh] overflow-y-auto mb-4">
           {messages.length > 0 &&
             messages
               .sort((a, b) => {
