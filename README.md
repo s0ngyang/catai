@@ -1,6 +1,6 @@
 # catai
 
-A wrapper for OpenAi Assistant, with function calling for cat images! Users can ask for up to 25 cats.
+A wrapper for OpenAI Assistant, with function calling for cat images! Users can ask for up to 25 cats.
 
 Stack
 
